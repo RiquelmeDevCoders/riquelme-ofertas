@@ -1,0 +1,33 @@
+name: Atualizar Produtos Diariamente
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # Executa todos os dias às 5h BRT (8h UTC)
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v3
+        
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Instalar dependências
+        run: npm install node-fetch cheerio
+        
+      - name: Executar web scraping
+        run: node scraper.js
+        
+      - name: Commit e push das alterações
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add products.json
+          git commit -m "Atualização diária de produtos"
+          git push

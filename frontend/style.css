@@ -1,0 +1,634 @@
+/* Importação da fonte Poppins */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+/* Reset e configurações globais */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* Paleta de cores equilibrada - Azul e Preto */
+    --primary-blue: #1e40af;
+    --secondary-blue: #3b82f6;
+    --light-blue: #dbeafe;
+    --dark-blue: #1e3a8a;
+    --primary-black: #111827;
+    --secondary-black: #1f2937;
+    --light-black: #374151;
+    --white: #ffffff;
+    --light-gray: #f9fafb;
+    --medium-gray: #e5e7eb;
+    --dark-gray: #6b7280;
+    --success-green: #10b981;
+    
+    /* Sombras */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    
+    /* Transições */
+    --transition: all 0.3s ease;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--light-gray);
+    color: var(--primary-black);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header */
+header {
+    background: var(--white);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+    margin-bottom: 30px;
+    border-top: 4px solid var(--primary-blue);
+}
+
+header .logo {
+    margin-bottom: 25px;
+}
+
+header .logo img {
+    width: 100px !important;
+    height: 100px;
+    border-radius: 50% !important;
+    border: 3px solid var(--primary-blue);
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+    object-fit: cover;
+}
+
+header .logo img:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-lg);
+}
+
+header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary-black);
+    margin-bottom: 15px;
+    letter-spacing: -0.5px;
+}
+
+header p {
+    font-size: 1.1rem;
+    color: var(--dark-gray);
+    margin-bottom: 30px;
+    font-weight: 400;
+}
+
+/* Botão WhatsApp */
+.whatsapp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--primary-blue);
+    color: var(--white);
+    padding: 14px 28px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow-md);
+}
+
+.whatsapp-btn:hover {
+    background: var(--dark-blue);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.whatsapp-btn i {
+    font-size: 1.2rem;
+}
+
+/* Grid de produtos */
+.products-grid {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 40px;
+    margin-bottom: 30px;
+    box-shadow: var(--shadow-md);
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.1rem;
+    color: var(--primary-blue);
+    font-weight: 500;
+}
+
+.loading i {
+    font-size: 1.3rem;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Data de atualização */
+.last-update {
+    background: var(--primary-black);
+    color: var(--white);
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 30px;
+    box-shadow: var(--shadow-md);
+}
+
+.last-update p {
+    margin: 0;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.last-update span {
+    color: var(--secondary-blue);
+    font-weight: 600;
+}
+
+/* Seção de informações do grupo */
+#info-grupo {
+    background: var(--white);
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 30px;
+    border-left: 4px solid var(--primary-blue);
+}
+
+#info-grupo h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--primary-black);
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+#info-grupo p {
+    font-size: 1rem;
+    line-height: 1.7;
+    margin-bottom: 20px;
+    color: var(--primary-black);
+    padding: 20px;
+    background: var(--light-blue);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary-blue);
+    transition: var(--transition);
+}
+
+#info-grupo p:hover {
+    transform: translateX(4px);
+    box-shadow: var(--shadow-sm);
+}
+
+#info-grupo p strong {
+    color: var(--primary-blue);
+    font-weight: 600;
+}
+
+/* Link do grupo */
+#info-grupo a {
+    display: inline-block;
+    background: var(--primary-blue);
+    color: var(--white);
+    padding: 16px 32px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 20px;
+    transition: var(--transition);
+    box-shadow: var(--shadow-md);
+}
+
+#info-grupo a:hover {
+    background: var(--dark-blue);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Footer */
+footer {
+    background: var(--secondary-black);
+    color: var(--white);
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: var(--shadow-md);
+}
+
+footer p {
+    margin: 0;
+    font-weight: 400;
+    font-size: 0.95rem;
+    opacity: 0.9;
+}
+
+/* Animações suaves */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+header {
+    animation: fadeInUp 0.6s ease;
+}
+
+.products-grid {
+    animation: fadeInUp 0.6s ease 0.1s both;
+}
+
+#info-grupo {
+    animation: fadeInUp 0.6s ease 0.2s both;
+}
+
+footer {
+    animation: fadeInUp 0.6s ease 0.3s both;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--medium-gray);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-blue);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--dark-blue);
+}
+
+/* ===== MEDIA QUERIES MOBILE - RIQUELME OFERTAS ===== */
+
+/* Tablets (768px e abaixo) */
+@media screen and (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    header {
+        padding: 30px 20px;
+        margin-bottom: 25px;
+    }
+
+    header .logo img {
+        width: 90px !important;
+        height: 90px;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+
+    header p {
+        font-size: 1rem;
+        margin-bottom: 25px;
+    }
+
+    .whatsapp-btn {
+        padding: 12px 24px;
+        font-size: 0.95rem;
+    }
+
+    .products-grid {
+        padding: 30px 20px;
+        margin-bottom: 25px;
+    }
+
+    .loading {
+        font-size: 1rem;
+    }
+
+    #info-grupo {
+        padding: 30px 20px;
+        margin-bottom: 25px;
+    }
+
+    #info-grupo h2 {
+        font-size: 1.6rem;
+        margin-bottom: 25px;
+    }
+
+    #info-grupo p {
+        font-size: 0.95rem;
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+
+    #info-grupo a {
+        padding: 14px 28px;
+        font-size: 0.95rem;
+    }
+
+    footer {
+        padding: 20px;
+    }
+}
+
+/* Smartphones (480px e abaixo) */
+@media screen and (max-width: 480px) {
+    .container {
+        padding: 12px;
+    }
+
+    header {
+        padding: 25px 18px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+
+    header .logo img {
+        width: 80px !important;
+        height: 80px;
+    }
+
+    header h1 {
+        font-size: 1.8rem;
+        margin-bottom: 12px;
+    }
+
+    header p {
+        font-size: 0.95rem;
+        margin-bottom: 20px;
+        padding: 0 10px;
+    }
+
+    .whatsapp-btn {
+        padding: 12px 20px;
+        font-size: 0.9rem;
+        width: 100%;
+        max-width: 280px;
+        justify-content: center;
+    }
+
+    .products-grid {
+        padding: 25px 18px;
+        margin-bottom: 20px;
+        border-radius: 10px;
+        min-height: 160px;
+    }
+
+    .loading {
+        font-size: 0.95rem;
+        gap: 10px;
+    }
+
+    .last-update {
+        padding: 14px;
+        margin-bottom: 20px;
+        border-radius: 6px;
+    }
+
+    .last-update p {
+        font-size: 0.85rem;
+    }
+
+    #info-grupo {
+        padding: 25px 18px;
+        margin-bottom: 20px;
+        border-radius: 10px;
+    }
+
+    #info-grupo h2 {
+        font-size: 1.4rem;
+        margin-bottom: 20px;
+    }
+
+    #info-grupo p {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        padding: 16px;
+        margin-bottom: 16px;
+        border-radius: 6px;
+    }
+
+    #info-grupo a {
+        padding: 14px 24px;
+        font-size: 0.9rem;
+        display: block;
+        text-align: center;
+        margin-top: 15px;
+        border-radius: 6px;
+    }
+
+    footer {
+        padding: 18px;
+        border-radius: 10px;
+    }
+
+    footer p {
+        font-size: 0.85rem;
+    }
+}
+
+/* Smartphones pequenos (360px e abaixo) */
+@media screen and (max-width: 360px) {
+    .container {
+        padding: 10px;
+    }
+
+    header {
+        padding: 20px 15px;
+    }
+
+    header .logo img {
+        width: 70px !important;
+        height: 70px;
+    }
+
+    header h1 {
+        font-size: 1.6rem;
+        margin-bottom: 10px;
+    }
+
+    header p {
+        font-size: 0.9rem;
+        margin-bottom: 18px;
+    }
+
+    .whatsapp-btn {
+        padding: 10px 18px;
+        font-size: 0.85rem;
+    }
+
+    .products-grid {
+        padding: 20px 15px;
+    }
+
+    .loading {
+        font-size: 0.9rem;
+        gap: 8px;
+    }
+
+    .last-update {
+        padding: 12px;
+    }
+
+    .last-update p {
+        font-size: 0.8rem;
+    }
+
+    #info-grupo {
+        padding: 20px 15px;
+    }
+
+    #info-grupo h2 {
+        font-size: 1.3rem;
+        margin-bottom: 18px;
+    }
+
+    #info-grupo p {
+        font-size: 0.85rem;
+        padding: 14px;
+        margin-bottom: 14px;
+    }
+
+    #info-grupo a {
+        padding: 12px 20px;
+        font-size: 0.85rem;
+    }
+
+    footer {
+        padding: 16px 15px;
+    }
+
+    footer p {
+        font-size: 0.8rem;
+    }
+}
+
+/* Orientação landscape para smartphones */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    header {
+        padding: 20px;
+    }
+
+    header .logo img {
+        width: 60px !important;
+        height: 60px;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+    }
+
+    header p {
+        font-size: 0.85rem;
+        margin-bottom: 15px;
+    }
+
+    .whatsapp-btn {
+        padding: 10px 16px;
+        font-size: 0.8rem;
+    }
+
+    #info-grupo {
+        padding: 20px;
+    }
+
+    #info-grupo h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+
+    #info-grupo p {
+        font-size: 0.8rem;
+        margin-bottom: 12px;
+        padding: 12px;
+    }
+}
+
+/* Ajustes para notch (iPhone X e similares) */
+@media screen and (max-width: 414px) and (-webkit-device-pixel-ratio: 3) {
+    .container {
+        padding-top: env(safe-area-inset-top, 12px);
+        padding-bottom: env(safe-area-inset-bottom, 12px);
+        padding-left: env(safe-area-inset-left, 12px);
+        padding-right: env(safe-area-inset-right, 12px);
+    }
+}
+
+/* Otimizações de toque para mobile */
+@media screen and (max-width: 768px) {
+    .whatsapp-btn, #info-grupo a {
+        -webkit-tap-highlight-color: rgba(30, 64, 175, 0.3);
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Melhora a rolagem */
+    .container {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Remove seleção de texto desnecessária */
+    header, footer, .last-update {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    
+    /* Mantém seleção onde necessário */
+    #info-grupo p {
+        -webkit-user-select: text;
+        user-select: text;
+    }
+}
+
+/* Preferência por movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .loading i {
+        animation: none;
+    }
+}
+
+/* Telas de alta densidade */
+@media screen and (-webkit-min-device-pixel-ratio: 2) {
+    header .logo img {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
