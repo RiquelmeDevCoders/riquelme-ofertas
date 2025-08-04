@@ -1,5 +1,5 @@
  // URL do backend hospedado no Render
-        const BACKEND_URL = 'https://riquelme-ofertas-backend.onrender.com/produtos';
+        const BACKEND_URL = 'https://riquelme-ofertas.onrender.com';
         
         async function loadProducts() {
             try {
