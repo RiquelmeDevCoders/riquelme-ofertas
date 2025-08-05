@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const cheerio = require('cheerio');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,23 +12,41 @@ app.use(express.json());
 // ID de afiliado
 const AFFILIATE_ID = '18369330491';
 
-// URL do JSON com dados atualizados (será preenchido pelo GitHub Actions)
-const PRODUCTS_URL = 'https://raw.githubusercontent.com/seu-usuario/riquelme-ofertas/main/products.json';
+// URL do JSON com dados atualizados 
+const PRODUCTS_URL = 'https://raw.githubusercontent.com/RiquelmeDevCoders/riquelme-ofertas/main/products.json';
 
-// Rota principal
-app.get('/produtos', async (req, res) => {
+// Rota principal (corrigindo para corresponder ao frontend)
+app.get('/', async (req, res) => {
     try {
         const response = await fetch(PRODUCTS_URL);
+        
+        if (!response.ok) {
+            throw new Error(`Erro ao buscar produtos: ${response.status}`);
+        }
+        
         const data = await response.json();
 
-        // Adicionar ID de afiliado aos URLs
+        // Verificar se existem produtos
+        if (!data.products || data.products.length === 0) {
+            return res.json({
+                products: [],
+                lastUpdate: new Date().toLocaleString('pt-BR')
+            });
+        }
+
+        // Adicionar ID de afiliado aos URLs (se necessário)
         const productsWithAffiliate = data.products.map(product => {
-            const affiliateUrl = new URL(product.url);
-            affiliateUrl.searchParams.set('affiliate_id', AFFILIATE_ID);
-            return {
-                ...product,
-                url: affiliateUrl.toString()
-            };
+            try {
+                const affiliateUrl = new URL(product.url);
+                affiliateUrl.searchParams.set('affiliate_id', AFFILIATE_ID);
+                return {
+                    ...product,
+                    url: affiliateUrl.toString()
+                };
+            } catch (error) {
+                // Se houver erro na URL, retorna sem modificar
+                return product;
+            }
         });
 
         res.json({
@@ -39,8 +56,27 @@ app.get('/produtos', async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao obter produtos:', error);
-        res.status(500).json({ error: 'Erro ao carregar produtos' });
+        res.status(500).json({ 
+            error: 'Erro ao carregar produtos',
+            products: [],
+            lastUpdate: new Date().toLocaleString('pt-BR')
+        });
     }
+});
+
+// Rota adicional para /produtos (mantendo compatibilidade)
+app.get('/produtos', async (req, res) => {
+    // Redireciona para a rota principal
+    req.url = '/';
+    app._router.handle(req, res);
+});
+
+// Rota de teste
+app.get('/test', (req, res) => {
+    res.json({ 
+        message: 'Servidor funcionando!', 
+        timestamp: new Date().toISOString() 
+    });
 });
 
 app.listen(PORT, () => {
