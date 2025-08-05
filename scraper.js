@@ -3,23 +3,13 @@ import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 
 // Configurações
-const SHOPEE_BASE_URL = 'https://shopee.com.br';
-const MAX_PAGES = 3;
-const PRODUCTS_LIMIT = 20;
-
-// Diferentes URLs para testar
-const SEARCH_URLS = [
-    'https://shopee.com.br/search?keyword=smartphone',
-    'https://shopee.com.br/search?keyword=fone',
-    'https://shopee.com.br/search?keyword=cabo',
-    'https://shopee.com.br/Celulares-e-Smartphones-cat.11036030',
-    'https://shopee.com.br/Eletr%C3%B4nicos-cat.11036031'
-];
+const PRODUCTS_LIMIT = 50; // Aumentando para ter mais variedade
+const AFFILIATE_ID = '18369330491'; // Só para Shopee
 
 // Headers mais completos para simular um navegador real
 const HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
     'Accept-Encoding': 'gzip, deflate, br',
     'Cache-Control': 'no-cache',
@@ -38,391 +28,416 @@ const HEADERS = {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Função para analisar a estrutura HTML
-function analyzeHTML(html, url) {
-    const $ = cheerio.load(html);
-    
-    console.log(`\n🔍 ANÁLISE DA PÁGINA: ${url}`);
-    console.log(`📏 Tamanho do HTML: ${html.length} caracteres`);
-    
-    // Verificar se a página carregou corretamente
-    const title = $('title').text();
-    console.log(`📄 Título da página: "${title}"`);
-    
-    // Procurar por indicadores de que é uma página de busca/produtos
-    const indicators = [
-        'search-result', 'product', 'item', 'card', 'listing',
-        'shopee-search', 'grid', 'catalog', 'merchandise'
-    ];
-    
-    let foundIndicators = [];
-    indicators.forEach(indicator => {
-        const elements = $(`[class*="${indicator}"], [id*="${indicator}"]`);
-        if (elements.length > 0) {
-            foundIndicators.push(`${indicator}: ${elements.length}`);
-        }
-    });
-    
-    console.log(`🎯 Indicadores encontrados: ${foundIndicators.join(', ') || 'Nenhum'}`);
-    
-    // Verificar diferentes estruturas de dados
-    const scripts = $('script').toArray();
-    let hasJsonData = false;
-    
-    scripts.forEach((script, index) => {
-        const content = $(script).html() || '';
-        if (content.includes('window.__INITIAL_STATE__') || 
-            content.includes('window.__APOLLO_STATE__') ||
-            content.includes('"products"') ||
-            content.includes('"items"')) {
-            hasJsonData = true;
-            console.log(`📊 Script ${index} contém dados estruturados`);
-            
-            // Tentar extrair dados JSON
-            try {
-                if (content.includes('window.__INITIAL_STATE__')) {
-                    const match = content.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/);
-                    if (match) {
-                        const data = JSON.parse(match[1]);
-                        console.log(`🗃️ Dados encontrados em __INITIAL_STATE__:`, Object.keys(data));
-                    }
-                }
-            } catch (e) {
-                console.log(`⚠️ Erro ao parsear JSON do script ${index}`);
+// URLs de busca por plataforma
+const PLATFORM_URLS = {
+    shopee: [
+        'https://shopee.com.br/search?keyword=smartphone',
+        'https://shopee.com.br/search?keyword=fone+bluetooth',
+        'https://shopee.com.br/search?keyword=power+bank',
+        'https://shopee.com.br/Celulares-e-Smartphones-cat.11036030'
+    ],
+    mercadolivre: [
+        'https://lista.mercadolivre.com.br/smartphone',
+        'https://lista.mercadolivre.com.br/fone-bluetooth',
+        'https://lista.mercadolivre.com.br/carregador-celular',
+        'https://lista.mercadolivre.com.br/cabo-usb-c'
+    ],
+    amazon: [
+        'https://www.amazon.com.br/s?k=smartphone',
+        'https://www.amazon.com.br/s?k=fone+de+ouvido+bluetooth',
+        'https://www.amazon.com.br/s?k=carregador+portatil',
+        'https://www.amazon.com.br/s?k=cabo+usb'
+    ],
+    aliexpress: [
+        'https://pt.aliexpress.com/wholesale?SearchText=smartphone',
+        'https://pt.aliexpress.com/wholesale?SearchText=wireless+earphones',
+        'https://pt.aliexpress.com/wholesale?SearchText=power+bank',
+        'https://pt.aliexpress.com/wholesale?SearchText=phone+case'
+    ]
+};
+
+// Seletores específicos por plataforma
+const SELECTORS = {
+    shopee: {
+        container: ['.shopee-search-item-result__item', '[data-sqe="item"]', '.item-card-special'],
+        title: ['img[alt]', '[data-sqe="name"]', '.shopee-item-result__name'],
+        price: ['[data-sqe="price"]', '.shopee-item-result__price', '[class*="price"]'],
+        image: ['img'],
+        url: ['a'],
+        discount: ['.discount', '[class*="discount"]', '[class*="off"]']
+    },
+    mercadolivre: {
+        container: ['.ui-search-result', '.ui-search-result__wrapper', '.ui-search-result__content'],
+        title: ['.ui-search-item__title', 'h2 a', '.ui-search-item__brand-discoverability'],
+        price: ['.ui-search-price__part', '.price-tag-amount', '[class*="price"]'],
+        image: ['.ui-search-result-image__element', 'img'],
+        url: ['.ui-search-result__content a', '.ui-search-link'],
+        discount: ['.ui-search-price__discount', '[class*="discount"]']
+    },
+    amazon: {
+        container: ['[data-component-type="s-search-result"]', '.s-result-item', '.sg-col-inner'],
+        title: ['h2 a span', '.s-title-instructions-style', 'h2 span'],
+        price: ['.a-price-whole', '.a-price .a-offscreen', '[class*="price"]'],
+        image: ['.s-image', 'img'],
+        url: ['h2 a', '.s-link-style'],
+        discount: ['.a-badge-text', '[class*="discount"]', '[class*="save"]']
+    },
+    aliexpress: {
+        container: ['.list--gallery--C2f2tvm', '.product-snippet', '[class*="item"]'],
+        title: ['.titles--wrap--UhxZQDr', '.product-title', 'h1', 'h2', 'h3'],
+        price: ['.price-current', '.notranslate', '[class*="price"]'],
+        image: ['.images--item--3XZa6xj img', 'img'],
+        url: ['a'],
+        discount: ['.price-discount', '[class*="discount"]', '[class*="off"]']
+    }
+};
+
+// Função para tentar extrair dados com múltiplos seletores
+function tryExtractData($element, selectors, attribute = null) {
+    for (const selector of selectors) {
+        const element = $element.find(selector).first();
+        if (element.length > 0) {
+            if (attribute) {
+                const value = element.attr(attribute);
+                if (value && value.trim()) return value.trim();
+            } else {
+                const text = element.text().trim();
+                if (text && text.length > 0) return text;
             }
         }
-    });
-    
-    if (!hasJsonData) {
-        console.log(`⚠️ Nenhum script com dados estruturados encontrado`);
     }
-    
-    // Listar as 20 classes mais comuns
-    const allElements = $('*').toArray();
-    const classCount = {};
-    
-    allElements.forEach(el => {
-        const className = $(el).attr('class');
-        if (className) {
-            className.split(' ').forEach(cls => {
-                if (cls.trim()) {
-                    classCount[cls] = (classCount[cls] || 0) + 1;
-                }
-            });
-        }
-    });
-    
-    const topClasses = Object.entries(classCount)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 20)
-        .map(([cls, count]) => `${cls}(${count})`)
-        .join(', ');
-    
-    console.log(`📋 Top 20 classes: ${topClasses}`);
-    
-    return { title, foundIndicators, hasJsonData, classCount };
+    return '';
 }
 
-// Função melhorada para extrair produtos
-function extractProducts($, url) {
+// Função para extrair produtos de uma plataforma específica
+async function extractFromPlatform(platform, urls) {
     let products = [];
+    console.log(`\n🔍 EXTRAINDO DE ${platform.toUpperCase()}`);
     
-    console.log(`\n🎯 TENTANDO EXTRAIR PRODUTOS DE: ${url}`);
-    
-    // Lista expandida de seletores possíveis
-    const possibleSelectors = [
-        // Seletores específicos da Shopee
-        '.shopee-search-item-result__item',
-        '.col-xs-2-4.shopee-search-item-result__item',
-        '[data-sqe="item"]',
-        '.shopee-item-card',
-        '.item-card-special',
-        '.search-item-card',
-        'div[data-testid="item-card"]',
+    for (const url of urls) {
+        if (products.length >= 15) break; // Limite por plataforma
         
-        // Seletores genéricos de e-commerce
-        '.product-item',
-        '.product-card',
-        '.item-card',
-        '.product',
-        '.item',
-        '[class*="product"]',
-        '[class*="item"]',
-        '[class*="card"]',
-        
-        // Seletores baseados em grid/layout
-        '.col-2-4',
-        '.col-xs-2-4',
-        '[class*="col-"]',
-        '.grid-item',
-        
-        // Seletores baseados em links/anchors
-        'a[href*="/product/"]',
-        'a[href*="/item/"]',
-        'a[href*="-i."]'
-    ];
-    
-    for (const selector of possibleSelectors) {
-        const items = $(selector);
-        console.log(`🔍 Seletor "${selector}": ${items.length} elementos`);
-        
-        if (items.length > 0) {
-            console.log(`✅ Processando com seletor: ${selector}`);
+        try {
+            console.log(`📡 Acessando: ${url}`);
             
-            items.each((i, el) => {
-                if (products.length >= PRODUCTS_LIMIT) return;
-                
-                const $el = $(el);
-                
-                // Extrair informações com múltiplas estratégias
-                let title = extractTitle($el);
-                let price = extractPrice($el);
-                let image = extractImage($el);
-                let productUrl = extractUrl($el);
-                let discount = extractDiscount($el);
-                
-                // Log detalhado dos primeiros 3 produtos
-                if (i < 3) {
-                    console.log(`\n📦 PRODUTO ${i + 1}:`);
-                    console.log(`  Título: ${title ? '✅' : '❌'} "${title}"`);
-                    console.log(`  Preço: ${price ? '✅' : '❌'} "${price}"`);
-                    console.log(`  Imagem: ${image ? '✅' : '❌'} "${image?.substring(0, 60)}..."`);
-                    console.log(`  URL: ${productUrl ? '✅' : '❌'} "${productUrl?.substring(0, 60)}..."`);
-                    console.log(`  Desconto: ${discount ? '✅' : '❌'} "${discount}"`);
-                }
-                
-                // Critério mínimo: ter título OU imagem E ter URL
-                if ((title || image) && productUrl) {
-                    products.push({
-                        title: title || 'Produto sem título',
-                        price: price || 'Consulte o preço',
-                        image: image || 'https://via.placeholder.com/200x200?text=Sem+Imagem',
-                        url: productUrl,
-                        discount: discount || ''
-                    });
-                }
+            const response = await fetch(url, { 
+                headers: HEADERS,
+                timeout: 15000
             });
             
-            if (products.length > 0) {
-                console.log(`🎉 Encontrados ${products.length} produtos válidos!`);
-                break; // Se encontrou produtos, não precisa testar outros seletores
+            if (!response.ok) {
+                console.log(`❌ Erro ${response.status} para ${url}`);
+                continue;
             }
+            
+            const html = await response.text();
+            const $ = cheerio.load(html);
+            
+            // Usar seletores específicos da plataforma
+            const selectors = SELECTORS[platform];
+            
+            for (const containerSelector of selectors.container) {
+                const items = $(containerSelector);
+                console.log(`🔍 Seletor "${containerSelector}": ${items.length} itens`);
+                
+                if (items.length > 0) {
+                    items.each((i, el) => {
+                        if (products.length >= 15) return;
+                        
+                        const $el = $(el);
+                        
+                        let title = tryExtractData($el, selectors.title);
+                        let price = tryExtractData($el, selectors.price);
+                        let image = tryExtractData($el, selectors.image, 'src') || 
+                                   tryExtractData($el, selectors.image, 'data-src') ||
+                                   tryExtractData($el, selectors.image, 'data-original');
+                        let productUrl = tryExtractData($el, selectors.url, 'href');
+                        let discount = tryExtractData($el, selectors.discount);
+                        
+                        // Limpar e processar dados
+                        title = cleanTitle(title);
+                        price = cleanPrice(price, platform);
+                        image = processImageUrl(image, platform);
+                        productUrl = processProductUrl(productUrl, platform, url);
+                        discount = cleanDiscount(discount);
+                        
+                        // Critério mínimo para aceitar o produto
+                        if (title && title.length > 10 && productUrl) {
+                            products.push({
+                                title,
+                                price: price || 'Consulte o preço',
+                                image: image || getPlaceholderImage(platform),
+                                url: productUrl,
+                                discount: discount || '',
+                                platform: platform,
+                                scraped_at: new Date().toISOString()
+                            });
+                        }
+                    });
+                    
+                    if (products.length > 0) break;
+                }
+            }
+            
+            console.log(`✅ ${products.length} produtos coletados de ${platform}`);
+            await sleep(3000 + Math.random() * 2000);
+            
+        } catch (error) {
+            console.error(`❌ Erro em ${url}:`, error.message);
         }
     }
     
     return products;
 }
 
-// Funções auxiliares para extração
-function extractTitle($el) {
-    const titleSelectors = [
-        'img[alt]', // Alt da imagem é frequentemente o título
-        '[data-sqe="name"]',
-        '.shopee-item-result__name',
-        '.product-title',
-        '.item-title',
-        '.title',
-        '[class*="title"]',
-        '[class*="name"]',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
-    ];
+// Funções auxiliares para limpeza de dados
+function cleanTitle(title) {
+    if (!title) return '';
     
-    for (const sel of titleSelectors) {
-        if (sel === 'img[alt]') {
-            const alt = $el.find('img').attr('alt');
-            if (alt && alt.trim() && alt.length > 5) return alt.trim();
+    // Remover caracteres estranhos e limitar tamanho
+    return title
+        .replace(/[^\w\s\-\(\)\[\]\/\+\&]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 100);
+}
+
+function cleanPrice(price, platform) {
+    if (!price) return '';
+    
+    // Extrair apenas números e símbolos monetários
+    let cleaned = price.replace(/[^\d,.\$R\s]/g, '').trim();
+    
+    // Se não tem R$, adicionar baseado na plataforma
+    if (cleaned && !cleaned.includes('R$') && !cleaned.includes('$')) {
+        if (platform === 'aliexpress') {
+            cleaned = 'US$ ' + cleaned;
         } else {
-            const text = $el.find(sel).first().text().trim();
-            if (text && text.length > 5) return text;
+            cleaned = 'R$ ' + cleaned;
         }
     }
     
-    return '';
+    return cleaned;
 }
 
-function extractPrice($el) {
-    const priceSelectors = [
-        '[data-sqe="price"]',
-        '.shopee-item-result__price',
-        '.price',
-        '.product-price',
-        '.item-price',
-        '[class*="price"]',
-        '[class*="cost"]',
-        '[class*="value"]'
-    ];
+function processImageUrl(image, platform) {
+    if (!image) return '';
     
-    for (const sel of priceSelectors) {
-        const text = $el.find(sel).first().text().trim();
-        if (text && (text.includes('R$') || text.includes('$') || /\d+[,.]?\d*/.test(text))) {
-            return text;
-        }
-    }
+    const baseUrls = {
+        shopee: 'https://shopee.com.br',
+        mercadolivre: 'https://mercadolivre.com.br',
+        amazon: 'https://amazon.com.br',
+        aliexpress: 'https://pt.aliexpress.com'
+    };
     
-    return '';
+    if (image.startsWith('//')) return 'https:' + image;
+    if (image.startsWith('/')) return baseUrls[platform] + image;
+    if (!image.startsWith('http')) return baseUrls[platform] + '/' + image;
+    
+    return image;
 }
 
-function extractImage($el) {
-    const img = $el.find('img').first();
-    let src = img.attr('src') || img.attr('data-src') || img.attr('data-original') || '';
+function processProductUrl(url, platform, baseUrl) {
+    if (!url) return '';
     
-    if (src) {
-        if (src.startsWith('//')) src = 'https:' + src;
-        else if (src.startsWith('/')) src = SHOPEE_BASE_URL + src;
-        else if (!src.startsWith('http')) src = SHOPEE_BASE_URL + '/' + src;
-    }
+    const baseUrls = {
+        shopee: 'https://shopee.com.br',
+        mercadolivre: 'https://mercadolivre.com.br',
+        amazon: 'https://amazon.com.br',
+        aliexpress: 'https://pt.aliexpress.com'
+    };
     
-    return src;
-}
-
-function extractUrl($el) {
-    let href = $el.find('a').first().attr('href') || $el.attr('href') || '';
+    if (url.startsWith('/')) url = baseUrls[platform] + url;
+    if (!url.startsWith('http')) url = baseUrls[platform] + '/' + url;
     
-    if (href) {
-        if (href.startsWith('/')) href = SHOPEE_BASE_URL + href;
-        else if (!href.startsWith('http')) href = SHOPEE_BASE_URL + '/' + href;
-    }
-    
-    return href;
-}
-
-function extractDiscount($el) {
-    const discountSelectors = [
-        '.discount',
-        '.sale',
-        '.off',
-        '[class*="discount"]',
-        '[class*="sale"]',
-        '[class*="off"]'
-    ];
-    
-    for (const sel of discountSelectors) {
-        const text = $el.find(sel).first().text().trim();
-        if (text && (text.includes('%') || text.includes('OFF'))) {
-            return text;
-        }
-    }
-    
-    return '';
-}
-
-async function scrapeShopee() {
-    let allProducts = [];
-    console.log('🚀 INICIANDO SCRAPING AVANÇADO DA SHOPEE\n');
-
-    for (let i = 0; i < SEARCH_URLS.length && allProducts.length < PRODUCTS_LIMIT; i++) {
-        const baseUrl = SEARCH_URLS[i];
-        
+    // Adicionar affiliate ID apenas para Shopee
+    if (platform === 'shopee') {
         try {
-            console.log(`\n🔄 TESTANDO URL ${i + 1}/${SEARCH_URLS.length}: ${baseUrl}`);
-            
-            const response = await fetch(baseUrl, { 
-                headers: HEADERS,
-                timeout: 15000
-            });
-            
-            console.log(`📡 Status: ${response.status} ${response.statusText}`);
-            
-            if (!response.ok) {
-                console.log(`❌ Resposta não OK, pulando...`);
-                continue;
-            }
-            
-            const html = await response.text();
-            
-            // Salvar HTML para debug
-            const filename = `debug_${i}_${Date.now()}.html`;
-            fs.writeFileSync(filename, html);
-            console.log(`💾 HTML salvo em: ${filename}`);
-            
-            // Analisar estrutura
-            const analysis = analyzeHTML(html, baseUrl);
-            
-            // Tentar extrair produtos
-            const $ = cheerio.load(html);
-            const products = extractProducts($, baseUrl);
-            
-            if (products.length > 0) {
-                allProducts.push(...products);
-                console.log(`✅ Coletados ${products.length} produtos desta URL`);
-                console.log(`📊 Total acumulado: ${allProducts.length} produtos`);
-            } else {
-                console.log(`❌ Nenhum produto encontrado nesta URL`);
-            }
-            
-            // Aguardar entre requisições
-            await sleep(5000 + Math.random() * 3000);
-            
-        } catch (error) {
-            console.error(`❌ Erro na URL ${baseUrl}:`, error.message);
+            const urlObj = new URL(url);
+            urlObj.searchParams.set('affiliate_id', AFFILIATE_ID);
+            return urlObj.toString();
+        } catch (e) {
+            return url;
         }
     }
-
-    console.log(`\n🎯 RESULTADO FINAL: ${allProducts.length} produtos coletados`);
-    return allProducts.slice(0, PRODUCTS_LIMIT);
+    
+    return url;
 }
 
-// Função de fallback melhorada
+function cleanDiscount(discount) {
+    if (!discount) return '';
+    return discount.replace(/[^\d%OFF\-]/g, '').trim();
+}
+
+function getPlaceholderImage(platform) {
+    const colors = {
+        shopee: 'FF6B35',
+        mercadolivre: 'FFE500',
+        amazon: 'FF9900',
+        aliexpress: 'FF4747'
+    };
+    
+    return `https://via.placeholder.com/300x300/${colors[platform]}/FFFFFF?text=${platform.toUpperCase()}`;
+}
+
+// Função para obter produtos de fallback de todas as plataformas
 function getFallbackProducts() {
-    console.log('📦 Usando produtos de fallback...');
+    console.log('📦 Usando produtos de fallback de múltiplas plataformas...');
+    
     return [
+        // Shopee
         {
-            title: "Smartphone Samsung Galaxy A54 128GB 5G",
+            title: "Smartphone Samsung Galaxy A54 5G 128GB",
             price: "R$ 1.299,90",
             image: "https://via.placeholder.com/300x300/FF6B35/FFFFFF?text=📱+Galaxy+A54",
-            url: "https://shopee.com.br/smartphone-samsung",
-            discount: "23% OFF"
+            url: `https://shopee.com.br/smartphone-samsung?affiliate_id=${AFFILIATE_ID}`,
+            discount: "23% OFF",
+            platform: "shopee"
         },
         {
-            title: "Fone de Ouvido JBL Tune 510BT Bluetooth",
+            title: "Fone JBL Tune 510BT Bluetooth Sem Fio",
             price: "R$ 149,90",
-            image: "https://via.placeholder.com/300x300/4ECDC4/FFFFFF?text=🎧+JBL+510BT",
-            url: "https://shopee.com.br/fone-jbl",
-            discount: "40% OFF"
+            image: "https://via.placeholder.com/300x300/FF6B35/FFFFFF?text=🎧+JBL+510BT",
+            url: `https://shopee.com.br/fone-jbl?affiliate_id=${AFFILIATE_ID}`,
+            discount: "40% OFF",
+            platform: "shopee"
+        },
+        
+        // Mercado Livre
+        {
+            title: "iPhone 14 128GB Azul Tela 6.1 iOS 5G",
+            price: "R$ 3.599,00",
+            image: "https://via.placeholder.com/300x300/FFE500/000000?text=📱+iPhone+14",
+            url: "https://mercadolivre.com.br/iphone-14",
+            discount: "15% OFF",
+            platform: "mercadolivre"
         },
         {
-            title: "Power Bank Xiaomi 10000mAh Carregamento Rápido",
+            title: "Echo Dot 5ª Geração Alexa Smart Speaker",
+            price: "R$ 249,90",
+            image: "https://via.placeholder.com/300x300/FFE500/000000?text=🔊+Echo+Dot",
+            url: "https://mercadolivre.com.br/echo-dot",
+            discount: "30% OFF",
+            platform: "mercadolivre"
+        },
+        
+        // Amazon
+        {
+            title: "Kindle 11ª Geração Luz Embutida 16GB",
+            price: "R$ 399,00",
+            image: "https://via.placeholder.com/300x300/FF9900/FFFFFF?text=📚+Kindle+11",
+            url: "https://amazon.com.br/kindle-11-geracao",
+            discount: "25% OFF",
+            platform: "amazon"
+        },
+        {
+            title: "Fire TV Stick 4K Max Streaming Player",
+            price: "R$ 379,00",
+            image: "https://via.placeholder.com/300x300/FF9900/FFFFFF?text=📺+Fire+TV+4K",
+            url: "https://amazon.com.br/fire-tv-stick-4k",
+            discount: "20% OFF",
+            platform: "amazon"
+        },
+        
+        // AliExpress
+        {
+            title: "Xiaomi Redmi Note 12 Pro 5G Global 256GB",
+            price: "US$ 189.99",
+            image: "https://via.placeholder.com/300x300/FF4747/FFFFFF?text=📱+Redmi+Note+12",
+            url: "https://pt.aliexpress.com/xiaomi-redmi-note-12",
+            discount: "45% OFF",
+            platform: "aliexpress"
+        },
+        {
+            title: "Earbuds Pro 3 TWS Bluetooth 5.3 Wireless",
+            price: "US$ 12.99",
+            image: "https://via.placeholder.com/300x300/FF4747/FFFFFF?text=🎧+Earbuds+Pro",
+            url: "https://pt.aliexpress.com/earbuds-pro-3",
+            discount: "70% OFF",
+            platform: "aliexpress"
+        },
+        
+        // Mais produtos variados
+        {
+            title: "Power Bank 20000mAh Carregamento Rápido PD",
             price: "R$ 89,90",
-            image: "https://via.placeholder.com/300x300/45B7D1/FFFFFF?text=🔋+Xiaomi+10k",
-            url: "https://shopee.com.br/power-bank-xiaomi",
-            discount: "35% OFF"
+            image: "https://via.placeholder.com/300x300/4ECDC4/FFFFFF?text=🔋+Power+Bank",
+            url: `https://shopee.com.br/power-bank-20000?affiliate_id=${AFFILIATE_ID}`,
+            discount: "35% OFF",
+            platform: "shopee"
         },
         {
-            title: "Cabo USB-C para Lightning Apple Original 1m",
-            price: "R$ 159,90",
-            image: "https://via.placeholder.com/300x300/96CEB4/FFFFFF?text=🔌+Apple+Cable",
-            url: "https://shopee.com.br/cabo-apple",
-            discount: "15% OFF"
+            title: "Suporte Veicular Magnético Para Celular",
+            price: "R$ 39,90",
+            image: "https://via.placeholder.com/300x300/96CEB4/FFFFFF?text=🚗+Suporte+Car",
+            url: "https://mercadolivre.com.br/suporte-veicular",
+            discount: "50% OFF",
+            platform: "mercadolivre"
         },
         {
-            title: "Película de Vidro 3D iPhone 14 Pro Max",
-            price: "R$ 29,90",
-            image: "https://via.placeholder.com/300x300/FFEAA7/FFFFFF?text=📱+Película+3D",
-            url: "https://shopee.com.br/pelicula-iphone",
-            discount: "50% OFF"
+            title: "Cabo USB-C 3.1 Carregamento Rápido 1.2m",
+            price: "R$ 24,90",
+            image: "https://via.placeholder.com/300x300/DDA0DD/FFFFFF?text=🔌+Cabo+USB-C",
+            url: "https://amazon.com.br/cabo-usb-c",
+            discount: "60% OFF",
+            platform: "amazon"
         },
         {
-            title: "Carregador Turbo 33W USB-C Xiaomi Original",
-            price: "R$ 79,90",
-            image: "https://via.placeholder.com/300x300/DDA0DD/FFFFFF?text=⚡+Carregador+33W",
-            url: "https://shopee.com.br/carregador-xiaomi",
-            discount: "25% OFF"
+            title: "Smartwatch T500 Plus Tela Infinita Bluetooth",
+            price: "US$ 15.99",
+            image: "https://via.placeholder.com/300x300/87CEEB/FFFFFF?text=⌚+Smartwatch",
+            url: "https://pt.aliexpress.com/smartwatch-t500",
+            discount: "80% OFF",
+            platform: "aliexpress"
         }
     ];
+}
+
+// Função principal de scraping
+async function scrapeAllPlatforms() {
+    let allProducts = [];
+    console.log('🚀 INICIANDO SCRAPING DE MÚLTIPLAS PLATAFORMAS\n');
+
+    // Tentar extrair de cada plataforma
+    for (const [platform, urls] of Object.entries(PLATFORM_URLS)) {
+        console.log(`\n🔄 PROCESSANDO ${platform.toUpperCase()}`);
+        
+        try {
+            const products = await extractFromPlatform(platform, urls);
+            if (products.length > 0) {
+                allProducts.push(...products);
+                console.log(`✅ ${products.length} produtos coletados de ${platform}`);
+            } else {
+                console.log(`❌ Nenhum produto coletado de ${platform}`);
+            }
+        } catch (error) {
+            console.error(`❌ Erro geral em ${platform}:`, error.message);
+        }
+        
+        // Aguardar entre plataformas
+        await sleep(5000);
+    }
+
+    console.log(`\n📊 TOTAL GERAL: ${allProducts.length} produtos de todas as plataformas`);
+    return allProducts.slice(0, PRODUCTS_LIMIT);
 }
 
 async function main() {
     try {
-        console.log('🚀 INICIANDO PROCESSO DE SCRAPING AVANÇADO...\n');
+        console.log('🚀 INICIANDO SCRAPING MULTI-PLATAFORMA...\n');
         
-        let products = await scrapeShopee();
+        let products = await scrapeAllPlatforms();
         
-        // Se não conseguiu produtos, usar fallback
-        if (products.length === 0) {
-            console.log('\n⚠️ NENHUM PRODUTO ENCONTRADO NO SCRAPING');
-            console.log('📦 Usando produtos de exemplo (fallback)');
-            products = getFallbackProducts();
+        // Se não conseguiu produtos suficientes, usar fallback
+        if (products.length < 10) {
+            console.log('\n⚠️ POUCOS PRODUTOS ENCONTRADOS NO SCRAPING');
+            console.log('📦 Complementando com produtos de exemplo');
+            const fallbackProducts = getFallbackProducts();
+            products = [...products, ...fallbackProducts].slice(0, PRODUCTS_LIMIT);
         }
+
+        // Embaralhar produtos para variedade
+        products = products.sort(() => Math.random() - 0.5);
 
         const now = new Date();
         const lastUpdate = now.toLocaleString('pt-BR', {
@@ -431,16 +446,24 @@ async function main() {
             timeZone: 'America/Sao_Paulo'
         });
 
+        // Contar produtos por plataforma
+        const platformCount = products.reduce((acc, product) => {
+            acc[product.platform] = (acc[product.platform] || 0) + 1;
+            return acc;
+        }, {});
+
         const data = {
             lastUpdate,
             products,
             totalProducts: products.length,
             scrapedAt: now.toISOString(),
-            source: products.length > 0 && products[0].url.includes('placeholder') ? 'fallback' : 'scraping',
+            platforms: platformCount,
+            hasAffiliateShopee: true,
             debug: {
-                searchUrls: SEARCH_URLS,
+                platformUrls: PLATFORM_URLS,
                 userAgent: HEADERS['User-Agent'],
-                timestamp: now.toISOString()
+                timestamp: now.toISOString(),
+                productsPerPlatform: platformCount
             }
         };
 
@@ -448,30 +471,36 @@ async function main() {
         console.log(`\n✅ ARQUIVO products.json SALVO!`);
         console.log(`📊 ${products.length} produtos salvos`);
         console.log(`📅 Última atualização: ${lastUpdate}`);
-        console.log(`🔧 Fonte: ${data.source}`);
+        console.log(`🏪 Plataformas: ${Object.keys(platformCount).join(', ')}`);
+        console.log(`📈 Distribuição:`, platformCount);
 
-        // Log do arquivo criado
         const fileSize = fs.statSync('products.json').size;
         console.log(`📁 Tamanho do arquivo: ${(fileSize / 1024).toFixed(2)} KB`);
 
     } catch (error) {
         console.error('\n❌ ERRO CRÍTICO NO SCRAPING:', error);
         
-        // Em caso de erro, criar arquivo com produtos de exemplo
+        // Em caso de erro, criar arquivo apenas com produtos de exemplo
         const fallbackData = {
             lastUpdate: new Date().toLocaleString('pt-BR', {
                 timeZone: 'America/Sao_Paulo'
             }),
             products: getFallbackProducts(),
-            totalProducts: 6,
+            totalProducts: getFallbackProducts().length,
             scrapedAt: new Date().toISOString(),
+            platforms: {
+                shopee: 3,
+                mercadolivre: 3,
+                amazon: 3,
+                aliexpress: 3
+            },
+            hasAffiliateShopee: true,
             source: 'fallback-error',
             error: error.message
         };
         
         fs.writeFileSync('products.json', JSON.stringify(fallbackData, null, 2));
-        console.log('📁 Arquivo de fallback criado devido ao erro');
-        
+        console.log('📁 Arquivo de fallback multi-plataforma criado devido ao erro');
     }
 }
 
